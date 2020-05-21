@@ -1,0 +1,33 @@
+version: 2.1
+orbs:
+  sfdx: circleci/salesforce-sfdx@1.0.0
+jobs:
+  deploy_to_scratch_org:
+    executor: sfdx/default
+    steps:
+      - checkout
+      - sfdx/install
+      - sfdx/auth:
+          defaultusername: your_username
+      - run:
+          name: Create a scratch org
+          command: sfdx force:org:create -f config/project-scratch-def.json -a autobuild
+      - run:
+          name: Push source to scratch org
+          command: sfdx force:source:push -u autobuild
+      - run:
+          name: Run Apex Tests
+          command: |
+            mkdir -p ~/junit
+            sfdx force:apex:test:run -u autobuild --codecoverage --outputdir ~/junit --resultformat junit --wait 5
+      - store_test_results:
+          path: ~/junit
+      - run:
+          name: Delete Scratch Org
+          command: |
+            sfdx force:org:delete -u autobuild -p
+          when: always
+workflows:
+  basic_test:
+    jobs:
+      - deploy_to_scratch_org
